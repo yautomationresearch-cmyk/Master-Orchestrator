@@ -1,0 +1,30 @@
+# Text files are LF in the working tree on every platform.
+#
+# Without this, git on Windows checks files out with CRLF, and anything that parses a file's exact
+# bytes reads different content than it does anywhere else. That is not hypothetical here: the guard
+# on published skills tests `text.startsWith('---\n')` to find YAML frontmatter, which is false for
+# `---\r\n`, so every shipped skill read as "no frontmatter — the CLI will skip it" and CI went red
+# on Windows only. Three separate tests parse markdown frontmatter this way.
+#
+# LF is also what these files ARE. The skills, the docs and the changelog are published artifacts
+# read by other tools; a CRLF copy on one contributor's disk is a local accident, not the content.
+#
+# `text=auto` still detects binary and leaves it alone, so images and fonts are unaffected.
+* text=auto eol=lf
+
+# Genuinely binary, named explicitly so no heuristic has to decide.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+*.icns binary
+
+# Windows-only scripts that must keep CRLF to run at all.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

@@ -1,0 +1,79 @@
+---
+title: '@reticlehq/babel-plugin'
+description: A Babel plugin that stamps data-reticle-source on JSX host elements so Reticle can name the file a node came from.
+icon: file-code
+---
+
+`@reticlehq/babel-plugin` stamps `data-reticle-source="file:line:col"` onto your JSX at build time, in dev only, so Reticle can name the file a DOM node came from. **You probably do not install this one directly**: [`@reticlehq/vite-plugin`](/packages/vite-plugin) and [`@reticlehq/next`](/packages/next) both pull it in. Reach for it only if you drive Babel yourself.
+
+React 19 dropped `_debugSource`, which is what source mapping used to rely on, so without this the tools can tell you the component name but not the file.
+
+**Apache 2.0. CommonJS. No runtime dependencies. Peer dependency: `@babel/core ^7`.**
+
+## What it stamps
+
+```jsx
+// src/components/Login.jsx
+export function Login({ submit }) {
+  return <button onClick={submit}>Sign in</button>;
+}
+```
+
+becomes, in dev only:
+
+```jsx
+export function Login({ submit }) {
+  return (
+    <button onClick={submit} data-reticle-source="src/components/Login.jsx:2:9">
+      Sign in
+    </button>
+  );
+}
+```
+
+The path is relative to `process.cwd()`, with backslashes normalized to forward slashes. A file with no name stamps `unknown`.
+
+## What it skips
+
+- Component tags. Only lowercase host elements are stamped, because a component's own JSX gets stamped where it is defined.
+- Elements that already carry the attribute.
+- Nodes with no location information.
+- Anything whose tag name is not a plain `JSXIdentifier`.
+
+## Do you install it?
+
+Only if you are wiring Babel yourself. [`@reticlehq/vite-plugin`](/packages/vite-plugin) and [`@reticlehq/next`](/packages/next) both pull it in.
+
+```bash
+npm i -D @reticlehq/babel-plugin
+```
+
+## The export
+
+One export, via `export =`. There are no named exports and no `default` interop wrapper, because Babel `require()`s the module and takes the object directly.
+
+```ts
+function reticleSourcePlugin({ types }: { types: typeof BabelTypes }): PluginObj<PluginPass>;
+```
+
+The Babel plugin name is `reticle-source`. Its visitor handles `JSXOpeningElement` only.
+
+**It takes no options.** The plugin reads nothing from `state.opts`.
+
+## Wiring it by hand
+
+```js
+// babel.config.cjs
+module.exports = {
+  plugins: process.env.NODE_ENV === 'development' ? [require('@reticlehq/babel-plugin')] : [],
+};
+```
+
+<Warning>
+  Do not write `require('@reticlehq/babel-plugin').default`. With `export =` there is no `.default`,
+  and an old README example got this wrong.
+</Warning>
+
+## Why an attribute rather than a runtime lookup
+
+The stamp survives minification of everything else, costs nothing at runtime, and is readable from the DOM node itself. That is what lets [`reticle_inspect`](/tools-inspect) answer with a file and a line rather than a component name and a shrug.

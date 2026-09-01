@@ -1,0 +1,28 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "Template Project",
+    "type": "Web & Mobile Hybrid App"
+  },
+  "nodes": [
+    {
+      "id": "node_vision",
+      "type": "VisionNode",
+      "label": "Project Vision",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "node_theme",
+      "type": "DesignTokenNode",
+      "label": "Apple Dark Glassmorphism",
+      "status": "ACTIVE"
+    }
+  ],
+  "edges": [
+    {
+      "source": "node_vision",
+      "target": "node_theme",
+      "relation": "USES"
+    }
+  ]
+}

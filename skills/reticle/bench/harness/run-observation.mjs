@@ -1,0 +1,415 @@
+// Layer A runner: observation-cost benchmark across all scenarios x all tools.
+// For each scenario: (optionally) capture a clean baseline, inject the regression,
+// run each tool's idiomatic recipe, measure every payload, grade detection by a
+// fixed rule, revert. Any failed cell is recorded verdict="NOT MEASURED".
+import { writeFileSync } from 'node:fs';
+import { makeAdapter } from './adapters.mjs';
+import { inject, revert, revertAll } from './inject.mjs';
+import { BENCH_URL } from './ports.mjs';
+
+// Never a port literal: ports.mjs is the one place the app, the daemon and every harness agree, and
+// a literal here silently drove ANOTHER process's app when a second dev server took 4312 mid-run —
+// the Reticle arm then measured nothing while the other tools kept scoring.
+const URL = BENCH_URL;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * How long one (scenario x tool) cell may take before it is abandoned.
+ *
+ * A cell that never returns used to block the ENTIRE pass — no analysis.json, no partial results,
+ * nothing. Observed twice in one day on `broken-form-validation`, both times stuck inside the
+ * Playwright MCP cell with its browser still alive, once for 38 minutes before it was killed by hand.
+ * A whole run's measurement was lost each time.
+ *
+ * Generous on purpose: the slowest healthy cell in the suite runs well under a minute, so this only
+ * fires on a genuine hang and never on a slow machine. It is a BOUND, not a duration assertion — the
+ * distinction this repo already enforces for tests.
+ *
+ * On expiry the cell lands in the existing catch, which records `NOT MEASURED` with the reason. That
+ * is deliberate and must stay loud: a timeout that silently dropped the cell would recreate exactly
+ * the coverage hole that anchor drift used to open, where the rate is computed over the survivors and
+ * the headline stays perfect while coverage shrinks.
+ */
+const CELL_TIMEOUT_MS = Number(process.env.BENCH_CELL_TIMEOUT_MS ?? '240000');
+
+class CellTimeout extends Error {}
+
+/** Run one cell, rejecting if it outlives the budget. */
+function withCellTimeout(run) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new CellTimeout(`cell exceeded ${String(CELL_TIMEOUT_MS)}ms and was abandoned`)),
+      CELL_TIMEOUT_MS,
+    );
+    run().then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
+// Default: all three tools. Set BENCH_TOOLS=reticle (comma-separated) to re-measure one tool's column
+// in isolation — the external tools' numbers are fixed, so an Reticle-only pass is enough to recompute VE.
+const TOOLS = (process.env['BENCH_TOOLS'] ?? 'playwright,devtools,reticle').split(',');
+
+// Each scenario: steps (run before observe), observe kind, grade mode + regex.
+// mode 'present'  -> detected if rx matches evidence.
+// mode 'absent'   -> detected if rx does NOT match evidence (expected thing is gone).
+// mode 'baseline' -> capture clean evidence too; detected via countDelta or differs.
+const SCENARIOS = [
+  {
+    id: 'hidden-api-500',
+    regression: null,
+    expectDetect: true,
+    observe: 'network',
+    steps: [
+      { view: 'diagnostics' },
+      { tap: { testid: 'fault-500', nameRe: /500 Server Error/, label: '500' } },
+      { wait: 600 },
+    ],
+    mode: 'present',
+    rx: /\b500\b/,
+    signal: 'network request with status 500',
+  },
+
+  {
+    id: 'wrong-status-404',
+    regression: null,
+    expectDetect: true,
+    observe: 'network',
+    steps: [
+      { view: 'diagnostics' },
+      { tap: { testid: 'fault-404', nameRe: /404 Not Found/, label: '404' } },
+      { wait: 600 },
+    ],
+    mode: 'present',
+    rx: /\b404\b/,
+    signal: 'network request with status 404 (wrong status / missing resource)',
+  },
+
+  {
+    id: 'cors-blocked',
+    regression: null,
+    expectDetect: true,
+    observe: 'network',
+    steps: [
+      { view: 'diagnostics' },
+      { tap: { testid: 'fault-cors', nameRe: /CORS blocked/, label: 'cors' } },
+      { wait: 800 },
+    ],
+    mode: 'present',
+    rx: /cors/i,
+    signal: 'cross-origin request blocked (CORS) — fails or returns status 0',
+  },
+
+  {
+    id: 'silent-dom-regression',
+    regression: 'silent-dom-regression',
+    expectDetect: true,
+    observe: 'snapshot',
+    steps: [{ view: 'overview' }, { wait: 300 }],
+    mode: 'baseline',
+    differs: true,
+    signal: 'a KPI card silently removed (normalized snapshot must change)',
+  },
+
+  {
+    id: 'route-transition-break',
+    regression: 'route-transition-break',
+    expectDetect: true,
+    observe: 'snapshot',
+    steps: [{ view: 'compose' }, { wait: 300 }],
+    mode: 'absent',
+    rx: /Generate|Compose a script|compose-prompt/i,
+    signal: 'Compose view fails to render after nav',
+  },
+
+  {
+    id: 'missing-modal',
+    regression: 'missing-modal',
+    expectDetect: true,
+    observe: 'snapshot',
+    steps: [
+      { view: 'deployments' },
+      { tap: { testid: 'new-deploy', nameRe: /New deploy/i, label: 'new-deploy' } },
+      { wait: 300 },
+    ],
+    mode: 'absent',
+    rx: /New deployment/i,
+    signal: 'modal never opens',
+  },
+
+  {
+    id: 'console-error-intact-ui',
+    regression: null,
+    expectDetect: true,
+    observe: 'console',
+    steps: [
+      { view: 'diagnostics' },
+      { tap: { testid: 'fault-buggy', nameRe: /buggy|chart|crash/i, label: 'buggy' } },
+      { wait: 300 },
+    ],
+    mode: 'present',
+    rx: /Render crash in <ChartWidget>/,
+    signal: 'console.error on click',
+  },
+
+  {
+    id: 'layout-shift',
+    regression: 'layout-shift',
+    expectDetect: true,
+    observe: 'snapshot',
+    steps: [{ view: 'overview' }, { wait: 300 }],
+    mode: 'baseline',
+    differs: true,
+    signal: 'grid columns change (CLS) — a11y tree unchanged',
+  },
+
+  {
+    id: 'broken-form-validation',
+    regression: 'broken-form-validation',
+    expectDetect: true,
+    observe: 'snapshot',
+    steps: [
+      { view: 'deployments' },
+      { tap: { testid: 'new-deploy', nameRe: /New deploy/i, label: 'new-deploy' } },
+      { wait: 250 },
+      { tap: { testid: 'deploy-submit', nameRe: /Deploy/, label: 'deploy-submit' } },
+      { wait: 400 },
+    ],
+    mode: 'absent',
+    rx: /New deployment/i,
+    signal: 'empty submit accepted (modal closes / deploy fires)',
+  },
+
+  {
+    id: 'cross-component-regression',
+    regression: 'cross-component-regression',
+    expectDetect: true,
+    observe: 'snapshot',
+    steps: [{ view: 'deployments' }, { wait: 300 }],
+    skip: true,
+    signal:
+      'filter input no longer changes the table — requires reliable cross-tool table-state diffing (a typed-filter before/after row count). Deferred to Layer B agent-loop; NOT MEASURED in Layer A to avoid a per-tool counting heuristic that would bias the comparison.',
+  },
+
+  {
+    id: 'network-timeout',
+    regression: 'network-timeout',
+    expectDetect: true,
+    observe: 'network',
+    steps: [
+      { view: 'diagnostics' },
+      { tap: { testid: 'fault-timeout', nameRe: /Timeout/, label: 'timeout' } },
+      { wait: 1600 },
+    ],
+    mode: 'present',
+    // Match the request's STATE, never its name. The endpoint is `/api/broken/timeout`, so the old
+    // `/timeout/i` was satisfied by the URL string in every tool's network listing — the observation
+    // could not fail. All three tools "detected" it at full confidence, in one of only ten
+    // real-regression scenarios, and the free true-positive inflated every column including ours.
+    //
+    // None of these words can appear in the URL, so a match means the tool reported a request it
+    // could see had not resolved. A tool whose network listing cannot express that now MISSES this
+    // scenario, which is the honest result: an agent reading that listing could not tell either.
+    rx: /\b(pending|in[-\s]?flight|unresolved|timed out|hung|no response)\b/i,
+    signal: 'request to /api/broken/timeout still unresolved (the endpoint never responds)',
+  },
+
+  {
+    id: 'no-regression-control',
+    regression: null,
+    expectDetect: false,
+    observe: 'snapshot',
+    steps: [{ view: 'overview' }, { wait: 300 }],
+    mode: 'present',
+    rx: /\b(error|crash|failed|undefined)\b/i,
+    signal: 'NONE — any detection is a false positive',
+  },
+];
+
+async function runRecipe(adapter, steps, observe) {
+  const cycle = [];
+  for (const s of steps) {
+    if (s.view) cycle.push(await adapter.gotoView(s.view));
+    else if (s.tap) cycle.push(await adapter.tap(s.tap));
+    else if (s.wait) await sleep(s.wait);
+  }
+  const obs = await adapter.observe(observe);
+  cycle.push(obs);
+  return { cycle, obsText: obs.text ?? '', allText: cycle.map((c) => c.text ?? '').join('\n') };
+}
+
+// Strip volatile tokens so a snapshot diff reflects SEMANTIC structure, not noise.
+// Without this, all three tools embed per-session junk (Reticle: session id/timestamps/cost;
+// Playwright: a timestamped console-log filename + ref ids; DevTools: uids/msgids) that
+// makes every snapshot byte-unique and produces false "differences".
+function normalize(s) {
+  return s
+    .replace(/ref=e?\d+/g, 'ref=R')
+    .replace(/\[ref=[^\]]*\]/g, '[ref]')
+    .replace(/uid=\S+/g, 'uid=U')
+    .replace(/msgid=\d+/g, 'msgid=M')
+    .replace(/reqid=\S+/g, 'reqid=Q')
+    .replace(/console-\d[\dT:.-]*Z[^\s]*/g, 'console-LOG')
+    .replace(/Console:\s*\d+\s*errors?,\s*\d+\s*warnings?/gi, 'Console:N')
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, 'UUID')
+    .replace(/"(lastSeenMs|opened_at|t|bytes|tokens)":\s*\d+/g, '"$1":N')
+    .replace(/\d+/g, '#')
+    .trim();
+}
+
+function grade(sc, regr, baseline) {
+  if (sc.skip) return { detected: null, detail: 'NOT MEASURED — see notes' };
+  if ('present' === sc.mode) return sc.rx.test(regr.obsText);
+  if ('absent' === sc.mode) return !sc.rx.test(regr.obsText);
+  if ('baseline' === sc.mode) {
+    if (sc.count) {
+      const b = (baseline.obsText.match(sc.count) ?? []).length;
+      const a = (regr.obsText.match(sc.count) ?? []).length;
+      return { detected: a < b, detail: `baseline=${b} after=${a}` };
+    }
+    if (sc.differs) {
+      const same = normalize(baseline.obsText) === normalize(regr.obsText);
+      return {
+        detected: !same,
+        detail: same
+          ? 'normalized snapshot IDENTICAL (change invisible to this observation)'
+          : 'normalized snapshots differ (structural change visible)',
+      };
+    }
+  }
+  return false;
+}
+
+const rows = [];
+const which = process.argv[2]; // optional single scenario id
+const list = which ? SCENARIOS.filter((s) => s.id === which) : SCENARIOS;
+
+for (const sc of list) {
+  for (const tool of TOOLS) {
+    const t0 = Date.now();
+    let row = {
+      scenario: sc.id,
+      tool,
+      layer: 'A',
+      token_input: null,
+      token_output: null,
+      total_tokens: null,
+      tokens_o200k: null,
+      chars: null,
+      bytes: null,
+      latency_ms: null,
+      verdict: '',
+      detected_issue: null,
+      expected_detect: sc.expectDetect,
+      confidence: 0,
+      notes: '',
+    };
+    if (sc.skip) {
+      row.verdict = 'NOT MEASURED';
+      row.notes = sc.signal;
+      rows.push(row);
+      console.log(JSON.stringify({ s: row.scenario, t: tool, v: 'NOT MEASURED' }));
+      continue;
+    }
+    // Held outside the cell so an ABANDONED cell can still be torn down: on timeout the inner
+    // `stop()` never runs, and without this each hang would leak a browser for the rest of the pass.
+    let openAdapter = null;
+    try {
+      await withCellTimeout(async () => {
+        let baseline = null;
+        // baseline scenarios: clean capture first
+        if ('baseline' === sc.mode) {
+          const a0 = makeAdapter(tool, URL);
+          openAdapter = a0;
+          await a0.start();
+          await a0.login();
+          baseline = await runRecipe(a0, sc.steps, sc.observe);
+          if (sc.differsAfterFilter) {
+            // type a filter and re-observe to compare effect on the table
+            if (tool !== 'devtools') {
+              try {
+                await a0.clickTestid('filter-search');
+              } catch {
+                /* */
+              }
+            }
+          }
+          await a0.stop();
+          openAdapter = null;
+        }
+        if (sc.regression) inject(sc.regression);
+        await sleep(400); // let vite HMR apply
+        const a = makeAdapter(tool, URL);
+        openAdapter = a;
+        await a.start();
+        await a.login();
+        const regr = await runRecipe(a, sc.steps, sc.observe);
+        await a.stop();
+        openAdapter = null;
+        if (sc.regression) revert(sc.regression);
+
+        const g = grade(sc, regr, baseline);
+        const detected = 'object' === typeof g ? g.detected : g;
+        const detail = 'object' === typeof g ? g.detail : '';
+        const cycleTokens = regr.cycle.reduce((n, c) => n + (c.tokens_o200k ?? 0), 0);
+        const cycleChars = regr.cycle.reduce((n, c) => n + (c.chars ?? 0), 0);
+        const cycleBytes = regr.cycle.reduce((n, c) => n + (c.bytes ?? 0), 0);
+        row = {
+          ...row,
+          tokens_o200k: cycleTokens,
+          chars: cycleChars,
+          bytes: cycleBytes,
+          latency_ms: Date.now() - t0,
+          verdict: detected ? 'ISSUE DETECTED' : 'NO ISSUE FOUND',
+          detected_issue: detected,
+          confidence: detected === sc.expectDetect ? 1 : 0,
+          notes: `obs=${sc.observe}; signal=${sc.signal}; ${detail}; calls=${regr.cycle.map((c) => c.call).join('>')}`,
+          _obsTokens: regr.cycle.at(-1)?.tokens_o200k ?? null,
+        };
+      });
+    } catch (e) {
+      // Best-effort: an abandoned cell leaves its browser up, and 36 cells of leaked Chrome would
+      // starve the rest of the pass. Never let a teardown failure mask the original error.
+      if (openAdapter !== null) {
+        try {
+          await openAdapter.stop();
+        } catch {
+          /* already gone */
+        }
+      }
+      if (sc.regression) {
+        try {
+          revert(sc.regression);
+        } catch {
+          /* */
+        }
+      }
+      row.verdict = 'NOT MEASURED';
+      row.notes = `error: ${String(e).slice(0, 200)}`;
+    }
+    rows.push(row);
+    console.log(
+      JSON.stringify({
+        s: row.scenario,
+        t: row.tool,
+        det: row.detected_issue,
+        exp: row.expected_detect,
+        tok: row.tokens_o200k,
+        ms: row.latency_ms,
+        v: row.verdict,
+        n: row.notes.slice(0, 90),
+      }),
+    );
+  }
+}
+revertAll();
+writeFileSync('bench/raw/observation-results.json', JSON.stringify(rows, null, 2));
+console.log(`\nwrote ${rows.length} rows`);
+process.exit(0);

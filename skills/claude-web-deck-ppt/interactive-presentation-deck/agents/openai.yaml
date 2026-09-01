@@ -1,0 +1,9 @@
+interface:
+  display_name: "Interactive Presentation Deck"
+  short_description: "Open Theme Gallery first — no irrelevant topic quizzes"
+  default_prompt: >-
+    Use $interactive-presentation-deck. On “create PPT/deck”: do NOT AskQuestion
+    with options from open files. Immediately run theme-gallery (or decks/theme-gallery)
+    npm run dev, open the URL, and WAIT for my theme selection. Only after I pick a
+    theme, ask a short relevant brief (topic, audience, length). If I say you choose
+    the theme, then you may pick.

@@ -1,0 +1,14 @@
+{
+  "name": "google_maps_platform",
+  "version": "1.0.0",
+  "description": "Integration skill and tools for Google Maps Platform APIs",
+  "author": {
+    "name": "Google Maps Platform"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "maps",
+    "places",
+    "routes"
+  ]
+}

@@ -1,0 +1,224 @@
+---
+title: 'Agentic install: let the agent do it'
+sidebarTitle: Agentic install
+description: Run npx @reticlehq/server init and let your coding agent wire Reticle into the project. What it changes, what it asks, and how to read its report.
+icon: wand-magic-sparkles
+---
+
+**Run `npx @reticlehq/server init` in your project root.** It registers the MCP server for every agent it finds, installs the SDK, wires your build config, writes the agent rule files, and prints a plan you can read. It is idempotent, so running it twice is safe.
+
+```bash
+npx @reticlehq/server init
+```
+
+The install is designed for the agent to run rather than you. The agent is about to be the primary user of this tool, so it may as well set up its own workspace.
+
+<Warning>
+  Always write the package scope: `npx @reticlehq/server <command>` is the CLI. Dropping the scope
+  and npx-ing the bare, unscoped `reticle` name fetches a different package published by somebody
+  else, which will not give you Reticle. Once `@reticlehq/server` is installed, `reticle` works as a
+  bin name on your PATH, which is the only context where the unscoped name is ours.
+</Warning>
+
+## What do I paste into my coding agent to install Reticle?
+
+Copy this whole block into Claude Code, Cursor, Copilot, Codex, Windsurf, OpenCode, or any MCP agent. It tells the agent what Reticle is, why it should want it, and what counts as finished. That last part is the one that matters.
+
+```text
+Reticle is the proof layer for AI coding agents. It runs a dev-only SDK inside my
+running web app, so instead of guessing whether your change worked, you can drive
+the real app and read what actually happened: the network calls, the store, the
+console, the routes, the DOM. You get back pass, fail, or "couldn't tell", with
+the file:line to fix. No screenshots, no vision model, no test syntax.
+
+Use it because you cannot otherwise tell whether your own code works. Reading the
+diff proves nothing, and unit tests do not run the app. Reticle is how you check
+your work before telling me it is done, and how you stop reporting "fixed" over a
+silent 500.
+
+Install it now:
+
+  RETICLE_INSTALL_SOURCE=docs_site npx @reticlehq/server@latest init
+
+Then follow https://docs.reticle.sh/install-agentic.md and, if anything needs a
+manual edit, https://docs.reticle.sh/install-manual.md. Do not stop until you have
+driven one real flow in my app and produced a verdict. That, not a config file, is
+what "installed" means.
+
+Afterwards, use it whenever you change any user-facing behaviour.
+```
+
+<Tip>
+  Prefer installing the skills instead? `npx skills add reticlehq/reticle` on most agents, or
+  `/plugin marketplace add reticlehq/reticle` then `/plugin install reticle@reticlehq` on Claude
+  Code, which registers the MCP server and all eleven skills in one step. Then type `/reticle` and
+  the agent runs this same setup from the skill.
+</Tip>
+
+The `RETICLE_INSTALL_SOURCE=docs_site` marker is how we tell which published route an install came through. It is self-declared by this page and never inferred, it carries no information about you or your project, and dropping it changes nothing about the install.
+
+<Note>
+  Everything on this page is real output. It was captured by scaffolding a pristine `npm create
+  vite` React app and running `init` inside it while writing this.
+</Note>
+
+## See the plan before anything is written
+
+`--dry-run` prints exactly what would happen and touches nothing:
+
+```bash
+npx @reticlehq/server init --dry-run
+```
+
+On a fresh Vite + React + TypeScript app, that produced:
+
+```
+reticle init (dry run, no files written)
+  in /tmp/initdemo
+
+  [·] MCP server (Claude, global) → global (claude user scope)
+      reticle already registered (install once, used by every project)
+  [·] MCP server (Cursor, global) → /Users/you/.cursor/mcp.json
+      reticle already in Cursor global config
+  [⚠] MCP server (Codex CLI) → /Users/you/.codex/config.toml
+      add this to /Users/you/.codex/config.toml by hand:
+      [mcp_servers.reticle]
+      command = "npx"
+      args = ["@reticlehq/server", "mcp"]
+
+  [✓] Agent verification rule → CLAUDE.md
+      teach the agent to verify features with Reticle after building them
+  [✓] The /reticle command → .claude/commands/reticle.md
+      type /reticle to verify one flow in the browser
+  [✓] Install dependencies → package.json
+      npm i -D @reticlehq/react@<version> @reticlehq/vite-plugin@<version>
+  [✓] Reticle config → .reticle.json
+      write project config (framework + port)
+  [✓] Vite plugin → vite.config.ts
+      add reticle() to plugins (also injects connect())
+  [✓] Capabilities + store → src/reticle-dev.ts
+      no data-testid values yet; no state library detected
+```
+
+## Reading the marks
+
+There are five, and they mean different things. This is the part worth understanding, because a run full of green ticks can still leave you with a broken install. Two of the five ask something of you.
+
+| Mark | Meaning                                                     | Do you need to act? |
+| ---- | ----------------------------------------------------------- | ------------------- |
+| `✓`  | Done, or would be done                                      | No                  |
+| `·`  | Already in place from a previous run or another project     | No                  |
+| `–`  | Deliberately skipped, usually by a flag you passed          | No                  |
+| `⚠`  | Could not be done automatically, with the exact fix printed | **Yes**             |
+| `ℹ`  | Done, but incomplete in a way that matters                  | **Yes, read it**    |
+
+<Warning>
+  A `⚠` is not cosmetic. In the run above, Reticle could not write the Codex CLI's TOML config, so
+  it printed the exact block to paste. Leave it and Codex simply never sees the tools.
+</Warning>
+
+That `ℹ` line is the one people skim past, so here it is in full:
+
+```
+  [ℹ] AGENT: finish the capabilities file → src/reticle-dev.ts
+      src/reticle-dev.ts was written but registers nothing, so `hasCapabilities` stays false
+      and reticle_state has nothing to read.
+```
+
+`init` wrote the file, but a brand-new Vite template has no testids and no state library, so there was nothing to register. Reticle tells you this instead of counting it as a win. See [Instrument your app](/instrumentation) for what to put in it.
+
+## What it actually changes
+
+Four files in your project, none of them mysterious.
+
+<AccordionGroup>
+  <Accordion title=".reticle.json (project config)">
+    ```json
+    {
+      "framework": "vite",
+      "projectId": "initdemo-308da9fe"
+    }
+    ```
+    The `projectId` is how Reticle scopes sessions to this project, so two apps running at once
+    don't get confused for each other.
+  </Accordion>
+
+  <Accordion title="vite.config.ts (the plugin)">
+    ```ts
+    import { defineConfig } from 'vite'
+    import react from '@vitejs/plugin-react'
+    import { reticle } from '@reticlehq/vite-plugin';
+
+    export default defineConfig({
+      plugins: [reticle(), react()],
+    })
+    ```
+    One import, one entry. The plugin stamps source locations onto your elements, which is what turns a DOM node into
+
+`src/components/Login.tsx:81`. It also injects `connect()` so you don't have to remember to.
+
+  </Accordion>
+
+  <Accordion title="src/reticle-dev.ts (your capabilities)">
+    ```ts
+    // Dev-only. Imported automatically by @reticlehq/vite-plugin, so you do not need to import it.
+    // Self-guards on import.meta.env.DEV, so it is a no-op in a production build.
+    import { registerCapabilities } from '@reticlehq/react';
+
+    if (import.meta.env.DEV) {
+      registerCapabilities({
+        testids: [], // none found; add data-testid to your key elements
+        signals: [], // names you pass to reticle.signal()
+        stores: [],  // the keys you registered above
+      });
+    }
+    ```
+    This is the file that decides how good your verdicts get. Empty, you still get DOM, network and
+    console. Filled in, your agent can check what the app *believes*, not just what it rendered.
+
+  </Accordion>
+
+  <Accordion title="CLAUDE.md and the /reticle command (agent rules)">
+    A rule telling your agent to verify features after building them, and a `/reticle` command that
+    drives one flow. Skipped entirely with `--no-mcp`, because rules for tools the agent can't reach
+    are just noise in the context window.
+  </Accordion>
+</AccordionGroup>
+
+## Flags
+
+```
+reticle init  [--dry-run] [--port N] [--no-mcp] [--no-install] [--app <dir>]
+              --app picks WHICH app in a monorepo, when several are found
+              --no-mcp skips MORE than the server registration: also the agent rule files
+              (CLAUDE.md / AGENTS.md / .cursor) and the /reticle command, because all three
+              only make sense once the tools are reachable.
+```
+
+| Flag           | When you want it                                                           |
+| -------------- | -------------------------------------------------------------------------- |
+| `--dry-run`    | Always, the first time.                                                    |
+| `--app <dir>`  | Monorepos. Without it, `init` finds several apps and asks which you meant. |
+| `--no-mcp`     | Your MCP config is managed elsewhere (dotfiles, a team template).          |
+| `--no-install` | You want to add the dependencies yourself, at your own versions.           |
+| `--port N`     | Something else already owns the default port.                              |
+
+## Then restart two things
+
+This trips up almost everyone, so `init` says it twice and so will we.
+
+**Restart your dev server.** The Vite plugin is new; the running process doesn't have it.
+
+**Restart your agent.** Claude Code, or reload the window in Cursor, or hit Start in `.vscode/mcp.json` in VS Code. Your agent read its server list at startup, before Reticle existed, and no slash command re-reads it. `/mcp` manages servers already loaded, so it cannot pick up a new one. This is a once-per-machine annoyance: Reticle registers globally, so every later project starts with the tools already there.
+
+## Confirm it worked
+
+```bash
+npx @reticlehq/server status
+```
+
+It confirms the app connected, or tells you exactly why it hasn't. A session in the list is the install actually finished. Not a green tick. A connected app.
+
+<Card title="Something marked ⚠?" icon="screwdriver-wrench" href="/install-manual">
+  The manual install covers every step `init` can't automate, per agent and per framework.
+</Card>

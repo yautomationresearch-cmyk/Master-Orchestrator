@@ -1,0 +1,8 @@
+node_modules
+.wrangler
+.next
+dist
+build
+*.tsbuildinfo
+.DS_Store
+.env*

@@ -1,0 +1,17 @@
+{
+  "googlecloudtools.datacloud_telemetry": {
+    "enabled": true,
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:\\Users\\KHAN COMPUTERS\\.gemini\\config\\plugins\\googlecloudtools.datacloud_telemetry\\telemetry_hook_bundle.js\" --agent_name gemini --install_source \"Antigravity IDE\" ; exit 0",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
