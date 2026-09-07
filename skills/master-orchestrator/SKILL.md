@@ -372,3 +372,24 @@ The graph memory organizes knowledge into structured nodes and edges:
 > **MANDATORY BADGE RULE FOR ALL AGENTS (ANTIGRAVITY, CODEX, CURSOR, CLAUDE):**
 > Agents are STRICTLY FORBIDDEN from outputting only `⚡ Active Skills: [master-orchestrator]`.
 > On EVERY turn, the agent MUST dynamically evaluate the user's intent across all 227+ skills and list at least 5 to 10 active domain skills reflecting the exact disciplines engaged (e.g. `⚡ Active Skills: [master-orchestrator, yc-office-hours, ceo-product-review, spline-3d, canvas-ui, magicui, smoothui, uiverse, playwright, reticle, apple-design, emil-design-eng]`).
+
+---
+
+## 14. Pillar 16: Superpowers Engineering Discipline & Defect-Free Execution Engine
+
+> **CORE INVARIANT: SENIOR ENGINEERING RIGOR & ZERO-DEFECT EXECUTION**
+> Inspired by Jesse Vincent's Superpowers, Master Orchestrator enforces uncompromisable engineering discipline before, during, and after code generation.
+
+### The 6 Superpowers Execution Gates:
+1. **Gate 1: Socratic 3-Approach Exploration (`superpowers-brainstorming`)**:
+   - Before writing code, present 2-3 distinct architectural approaches (Lean vs Scalable vs Bespoke) with explicit trade-offs. Ask clarifying questions one at a time.
+2. **Gate 2: Bite-Sized Micro-Task Decomposition (`superpowers-writing-plans`)**:
+   - Decompose tasks into 2-5 minute micro-steps with exact file paths, exact code symbols, and concrete verification checks. Satisfies the Zero-Context Engineer test.
+3. **Gate 3: 4-Phase Root Cause Analysis (`systematic-debugging`)**:
+   - Shotgun debugging is strictly banned. Every bug must follow: Reproduce -> Isolate -> Hypothesize -> Surgical Fix.
+4. **Gate 4: Subagent Context Protection (`subagent-driven-development`)**:
+   - Dispatch isolated subagents for heavy discrete tasks with two-stage reviews (Spec Review + Quality Review), protecting the primary conversation memory from bloat.
+5. **Gate 5: Hostile Adversarial Code Review (`defensive-code-review`)**:
+   - Audit diffs for zero-placeholders, type integrity, visual layout bleed, and unhandled network errors before declaring done.
+6. **Gate 6: Test-First Safety Net (`test-driven-development`)**:
+   - For critical business logic (calculations, auth, OCR extraction, drug-drug clash checks), enforce the Red-Green-Refactor cycle.
