@@ -1,6 +1,6 @@
 # ⚡ Master Orchestrator: The Supreme Autonomous Multi-Agent Intelligence Layer
 
-> **The definitive production-grade AI agent skills ecosystem.** Bridges 221+ specialized domain skills, 12 MCP servers, Persistent Graphical Knowledge Memory, and the 5 Breakthrough Self-Healing Engines into a single unified intelligence layer.
+> **The definitive production-grade AI agent skills ecosystem.** Bridges 240+ specialized domain skills, 12 MCP servers, Persistent Graphical Knowledge Memory, and the 5 Breakthrough Self-Healing Engines into a single unified intelligence layer.
 
 Compatible out-of-the-box with **Antigravity**, **Cursor IDE (`.cursorrules`)**, **Claude Code CLI (`CLAUDE.md`)**, **Codex (`AGENTS.md`)**, and **Windsurf**.
 
@@ -67,3 +67,8 @@ Simply copy or link `AGENTS.md` and the `skills/` folder into your project's `.a
 
 ## 🤖 Dedicated Agent Guide
 For AI coding agents executing within this workspace, read **[AGENT_ONBOARDING.md](./AGENT_ONBOARDING.md)** for operational instructions.
+
+## 🌿 Pillar 17: Autonomous Git Worktree Lifecycle & Multi-Branch Sandbox Protocol
+- **Zero Unprompted Creation:** AI detects project status and provides polite advisory reminders without silent mutations.
+- **Auto-Hydration:** Copies `.env` / `.env.local` automatically, assigns unique ports (`PORT=3001+`), and manages Windows `core.longpaths`.
+- **Clean Merge & Prune:** Seamlessly merges verified features back into `main` and prunes dangling references.

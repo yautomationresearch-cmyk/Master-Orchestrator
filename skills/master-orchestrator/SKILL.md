@@ -371,7 +371,7 @@ The graph memory organizes knowledge into structured nodes and edges:
 
 > **MANDATORY BADGE RULE FOR ALL AGENTS (ANTIGRAVITY, CODEX, CURSOR, CLAUDE):**
 > Agents are STRICTLY FORBIDDEN from outputting only `⚡ Active Skills: [master-orchestrator]`.
-> On EVERY turn, the agent MUST dynamically evaluate the user's intent across all 236+ skills and list at least 5 to 10 active domain skills reflecting the exact disciplines engaged (e.g. `⚡ Active Skills: [master-orchestrator, yc-office-hours, ceo-product-review, spline-3d, canvas-ui, magicui, smoothui, uiverse, playwright, reticle, apple-design, emil-design-eng]`).
+> On EVERY turn, the agent MUST dynamically evaluate the user's intent across all 240+ skills and list at least 5 to 10 active domain skills reflecting the exact disciplines engaged (e.g. `⚡ Active Skills: [master-orchestrator, yc-office-hours, ceo-product-review, spline-3d, canvas-ui, magicui, smoothui, uiverse, playwright, reticle, apple-design, emil-design-eng]`).
 
 ---
 
@@ -395,3 +395,27 @@ The graph memory organizes knowledge into structured nodes and edges:
    - Audit diffs for zero-placeholders, type integrity, visual layout bleed, and unhandled network errors before declaring done.
 7. **Gate 7: Test-First Safety Net (`test-driven-development`)**:
    - For critical business logic (calculations, auth, OCR extraction, drug-drug clash checks), enforce the Red-Green-Refactor cycle.
+
+---
+
+## 15. Pillar 17: Autonomous Git Worktree Lifecycle & Multi-Branch Sandbox Protocol
+
+> **CORE INVARIANT: NO SILENT AUTO-CREATION & PROACTIVE ADVISORY DETECTION**
+> The agent must NEVER automatically execute `git worktree add` silently. The agent must detect project status and proactively suggest/remind the user via the Subtle Advisory Box.
+
+### 1. Project Detection & Subtle Advisory Box
+On EVERY project turn (new or existing workspace):
+- Check if Git is initialized.
+- Check if a worktree sandbox exists (e.g. `git worktree list`).
+- If uninitialized and working on the primary branch, append the **Subtle Advisory Box** at the bottom of the response:
+```markdown
+---
+💡 **[WORKTREE ADVISORY]**: This project is running directly on the primary branch with no isolated worktree sandbox.
+Reply **"setup worktree"** to initialize safe parallel branch sandboxes without risk of breaking your main code.
+```
+
+### 2. The 4-Step Golden Lifecycle
+1. **Creation:** Sibling pattern `git worktree add ../<project>-worktrees/<task> -b <branch>` with `core.longpaths true`.
+2. **Auto-Hydration:** Auto-copy `.env` & `.env.local`, assign unique `PORT=3001+`.
+3. **Execution:** Subagent works and tests in complete isolation.
+4. **Clean Merge & Prune:** Merge to main, kill background node processes, `git worktree remove`, and `git worktree prune`.
