@@ -10,13 +10,20 @@ description: Production Git Worktree lifecycle and multi-branch sandbox protocol
 
 ---
 
-## 1. When to Suggest Git Worktrees
-- At the start of any new or existing Git repository that lacks a worktree structure.
-- When planning a major refactor, experimental 3D/shader implementation, or risky database migration.
-- When delegating parallel tasks to subagents.
+## 1. When to Suggest Git Worktrees (Strict Precondition Gate)
+
+> **CRITICAL GATE: ZERO FALSE POSITIVES**
+> The Subtle Advisory Box MUST ONLY be appended when **ALL 4** preconditions are verified:
+> 1. **Active Project Open:** An actual project workspace folder is opened in the IDE (NOT `(no project)`, NOT "No Folder Opened", NOT empty scratchpad).
+> 2. **Git Repository Verified:** The workspace has an initialized `.git` folder (`git rev-parse --is-inside-work-tree` is true).
+> 3. **Primary Branch & Active Code Edits:** The user is working directly on `main` or `master` with active code modifications, refactor requests, or feature implementations.
+> 4. **No Existing Worktree Sandbox:** No existing worktree directory (`../<repo>-worktrees/` or `git worktree list`) exists yet for this project.
+>
+> **STRICT SUPPRESSION RULE:**
+> If ANY condition is false — or if the user is in general chat, reviewing plans, checking skills, reading documentation, or already working inside an isolated branch or worktree — **DO NOT OUTPUT THE ADVISORY BOX!**
 
 ### The Subtle Advisory Box (Mandatory Output Format):
-When a project lacks an initialized worktree structure, append this exact box at the bottom of the response:
+When ALL 4 preconditions are verified, append this exact box at the bottom of the response:
 ```markdown
 ---
 💡 **[WORKTREE ADVISORY]**: This project is running directly on the primary branch with no isolated worktree sandbox.
@@ -91,3 +98,22 @@ git worktree prune
 4. **Long Path Configuration:** Always execute `git config --global core.longpaths true`.
 5. **No Same-Branch Collisions:** Never attach two worktrees to the same branch.
 6. **Ghost Worktree Cleanup:** Always execute `git worktree prune` after branch deletion.
+
+---
+
+## 5. Synergy with 12 MCP Servers & 240+ Skills Ecosystem
+
+1. **Playwright & Reticle MCP:**
+   - Always run test suites and browser automations using the dynamic port assigned to the worktree (e.g. `http://localhost:3001` or `http://localhost:5174`).
+   - Never point Playwright at the main branch port (`3000`/`5173`) while testing an isolated worktree branch.
+2. **MongoDB & Postman MCP:**
+   - Auto-hydration copies connection strings and API specifications into the worktree sandbox safely without exposing or corrupting credentials in public repos.
+3. **UI Component Harvesting (`reactbits`, `smoothui`, `magicui`, `canvas-ui`):**
+   - Subagents install dependencies and mount experimental WebGL / Three.js components inside the sibling worktree sandbox first.
+   - Once Emil Kowalski & Apple design verification passes, the feature branch is merged to `main`.
+4. **Autonomous Project Graph Memory (`agent/PROJECT_GRAPH_MEMORY.md`):**
+   - Worktree subagents read from and synchronize state back to the root project graph memory, preventing multi-chat amnesia across branch sandboxes.
+5. **Global-Only Boundary (Anti-Corruption Invariant):**
+   - Worktree rules and Master Orchestrator configurations MUST be maintained ONLY at the Global Level (`~/.gemini/config/` and central Master-Orchestrator repository).
+   - Never pollute individual client/product repositories with duplicated global orchestrator rules.
+

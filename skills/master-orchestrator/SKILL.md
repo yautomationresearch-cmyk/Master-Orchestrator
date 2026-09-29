@@ -400,22 +400,38 @@ The graph memory organizes knowledge into structured nodes and edges:
 
 ## 15. Pillar 17: Autonomous Git Worktree Lifecycle & Multi-Branch Sandbox Protocol
 
-> **CORE INVARIANT: NO SILENT AUTO-CREATION & PROACTIVE ADVISORY DETECTION**
-> The agent must NEVER automatically execute `git worktree add` silently. The agent must detect project status and proactively suggest/remind the user via the Subtle Advisory Box.
+> **CORE INVARIANTS: NO SILENT AUTO-CREATION & ZERO-FALSE-POSITIVE PRECONDITION GATE**
+> 1. **Zero Unprompted Creation:** The agent must NEVER automatically execute `git worktree add` without explicit user confirmation.
+> 2. **Strict Precondition Gate:** The Subtle Advisory Box MUST ONLY trigger when an active project is open, Git is verified initialized, active code modification on the primary branch is underway, and no worktree exists yet.
+> 3. **Global-Only Boundary (Anti-Corruption):** Master Orchestrator rules, pillars, and worktree protocols reside STRICTLY at the Global Level (`~/.gemini/config/` and central Master-Orchestrator repository). NEVER duplicate or inject them into individual product repositories.
 
-### 1. Project Detection & Subtle Advisory Box
-On EVERY project turn (new or existing workspace):
-- Check if Git is initialized.
-- Check if a worktree sandbox exists (e.g. `git worktree list`).
-- If uninitialized and working on the primary branch, append the **Subtle Advisory Box** at the bottom of the response:
+### 1. Precision Detection & Precondition Gate (Zero False Positives)
+The **Subtle Advisory Box** MUST ONLY be displayed when **ALL 4** of the following preconditions are simultaneously satisfied:
+1. **Active Project Workspace Open:** A valid project directory is actively opened in the IDE (NOT `(no project)`, NOT "No Folder Opened", NOT a temporary scratchpad).
+2. **Verified Git Initialization:** The project has an active `.git` repository directory (`git rev-parse --is-inside-work-tree` evaluates to true).
+3. **Primary Branch & Active Code Edits:** The workspace is currently on `main` or `master` AND the user request involves active code generation, refactoring, or feature development.
+4. **No Existing Worktree Sandbox:** No existing worktree directory (`../<repo>-worktrees/` or `git worktree list`) is present for this project.
+
+**STRICT SUPPRESSION RULE:**
+If ANY of the above conditions is false — or if the user is in general conversation, asking questions, reviewing plans, checking skills/status, or already inside a branch or worktree — **DO NOT OUTPUT THE ADVISORY BOX!**
+
+When all 4 conditions are met, append this subtle box at the bottom:
 ```markdown
 ---
 💡 **[WORKTREE ADVISORY]**: This project is running directly on the primary branch with no isolated worktree sandbox.
 Reply **"setup worktree"** to initialize safe parallel branch sandboxes without risk of breaking your main code.
 ```
 
-### 2. The 4-Step Golden Lifecycle
+### 2. Synergy with 12 MCP Servers & 240+ Skills
+- **Playwright & Reticle MCP:** When running tests or browser verification inside a worktree sandbox, assign dynamic ports (`PORT=3001` or `VITE_PORT=5174+`) to prevent `EADDRINUSE` port collisions with dev servers running in the main project directory (`PORT=3000`/`5173`).
+- **MongoDB & Postman MCP:** Step 2 auto-hydration safely copies `.env` and `.env.local` to the worktree directory so database connections and API keys remain functional without manual re-entry.
+- **UI Component Harvesting (`magicui`, `smoothui`, `reactbits`, `canvas-ui`):** Subagents can mount and verify complex WebGL shaders and interactive components inside the worktree sandbox before merging, preventing layout breaks or package mismatches in the main branch.
+- **Subagent-Driven Development (`subagent-driven-development`):** Heavy feature implementations are delegated to subagents running within the sibling worktree directory `../<project>-worktrees/<task>`.
+- **Project Graph Memory Integrity:** Worktrees maintain a shared link to the primary repository's `agent/PROJECT_GRAPH_MEMORY.md` to prevent context fragmentation across parallel branches.
+
+### 3. The 4-Step Golden Lifecycle
 1. **Creation:** Sibling pattern `git worktree add ../<project>-worktrees/<task> -b <branch>` with `core.longpaths true`.
 2. **Auto-Hydration:** Auto-copy `.env` & `.env.local`, assign unique `PORT=3001+`.
 3. **Execution:** Subagent works and tests in complete isolation.
 4. **Clean Merge & Prune:** Merge to main, kill background node processes, `git worktree remove`, and `git worktree prune`.
+
