@@ -1,4 +1,4 @@
-{
+﻿{
   "mcpServers": {
     "playwright": {
       "command": "npx",
@@ -15,28 +15,42 @@
       ]
     },
     "21st": {
-      "url": "https://21st.dev/api/mcp"
-    },
-    "shadcn": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "shadcn-mcp@latest"
-      ]
+      "serverUrl": "https://21st.dev/api/mcp",
+      "headers": {
+        "x-api-key": "${TWENTY_FIRST_API_KEY}"
+      }
     },
     "reactbits": {
       "command": "npx",
       "args": [
         "-y",
-        "reactbits-mcp@latest"
+        "reactbits-dev-mcp-server"
       ]
     },
-    "supabase": {
+    "reticle": {
       "command": "npx",
       "args": [
         "-y",
-        "@supabase/mcp-server@latest"
+        "@reticlehq/server",
+        "mcp"
       ]
+    },
+    "Postman": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@postman/postman-mcp-server@latest",
+        "--minimal"
+      ],
+      "env": {
+        "POSTMAN_API_KEY": "${POSTMAN_API_KEY}"
+      }
+    },
+    "cloudflare": {
+      "serverUrl": "https://mcp.cloudflare.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${CLOUDFLARE_API_TOKEN}"
+      }
     }
   }
 }
